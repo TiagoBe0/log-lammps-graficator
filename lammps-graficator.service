@@ -1,0 +1,30 @@
+# Unidad systemd DE USUARIO (systemctl --user).
+#
+# Por que de usuario y no de sistema: el venv usa el python de miniconda (en el
+# home) y el proyecto vive en un disco de datos; SELinux en AlmaLinux impide que
+# PID 1 ejecute binarios desde ahi (203/EXEC "Permission denied"). El servicio
+# de usuario corre en tu propio contexto, donde si se puede.
+#
+# Instalacion (como simaf, sin sudo salvo el linger):
+#   mkdir -p ~/.config/systemd/user
+#   cp lammps-graficator.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now lammps-graficator
+#   sudo loginctl enable-linger simaf   # arranca al boot aunque no haya sesion
+#
+# Estado / logs:
+#   systemctl --user status lammps-graficator
+#   journalctl --user -u lammps-graficator -f
+
+[Unit]
+Description=LAMMPS Log Graficator (Streamlit)
+After=network.target
+
+[Service]
+WorkingDirectory=/home/santi/Documents/log_lammps_graficator
+ExecStart=/home/santi/Documents/log_lammps_graficator/.venv/bin/python3 -m streamlit run app.py --server.address 0.0.0.0 --server.port 8502 --server.headless true --server.maxUploadSize 1024 --browser.gatherUsageStats false
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
