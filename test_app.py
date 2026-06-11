@@ -76,4 +76,12 @@ at = run_app(["basura.txt"])
 check(at, "archivo invalido")
 assert at.warning, "deberia avisar que no es un log"
 
+# 5. Cambiar fondo a Oscuro y formato de imagen a JPG (paths de tema/exportacion)
+def mutate_theme(at):
+    at.radio(key="theme_name").set_value("Oscuro")
+    at.radio(key="img_fmt").set_value("JPG")
+
+at = run_app(["log_T5500_g8.lammps"], mutate_theme)
+check(at, "fondo Oscuro + imagen JPG")
+
 print("\nTodos los tests pasaron ✅")
