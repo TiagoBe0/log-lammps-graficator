@@ -54,7 +54,7 @@ assert len(at.multiselect) >= 3
 # 2. Un log, varias columnas Y + subplots + suavizado + log Y + sin unir runs
 def mutate(at):
     at.multiselect[2].set_value(["Temp", "TotEng", "Press"])
-    at.radio[0].set_value("Subplot por columna")
+    at.radio(key="disposicion").set_value("Subplot por columna")
     at.checkbox[0].set_value(False)   # unir runs
     at.slider[0].set_value(21)        # suavizado
     at.checkbox[2].set_value(True)    # escala log
