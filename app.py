@@ -17,10 +17,19 @@ from lammps_log_parser import LammpsLog, parse_log, runs_summary
 st.set_page_config(page_title="LAMMPS Log Graficator", page_icon="📈", layout="wide")
 
 MAX_POINTS_PER_TRACE = 10_000
-PLOT_CONFIG = {
-    "displaylogo": False,
-    "toImageButtonOptions": {"format": "png", "scale": 3, "filename": "lammps_plot"},
-}
+# Formatos de imagen que ofrece el boton de camara del grafico (export en el
+# navegador, sin dependencias en el servidor). Etiqueta -> formato de Plotly.
+IMG_FORMATS = {"PNG": "png", "JPG": "jpeg", "SVG (vectorial)": "svg"}
+DEFAULT_IMG_FORMAT = "PNG"
+
+
+def plot_config(filename: str = "lammps_plot") -> dict:
+    """Config de Plotly con el formato de imagen elegido para el boton de camara."""
+    fmt = IMG_FORMATS.get(st.session_state.get("img_fmt", DEFAULT_IMG_FORMAT), "png")
+    return {
+        "displaylogo": False,
+        "toImageButtonOptions": {"format": fmt, "scale": 3, "filename": filename},
+    }
 
 # Fuente con aire a publicacion cientifica (serif, tipo Computer Modern/Times).
 PAPER_FONT = "Georgia, 'Times New Roman', 'Nimbus Roman', serif"
@@ -71,15 +80,43 @@ def current_theme() -> dict:
 
 
 def inject_theme_css(theme: dict) -> None:
-    """Pinta el fondo de la app (pagina y sidebar) segun el tema elegido."""
+    """Pinta el fondo de la app y fuerza el color de TODO el texto sobre el.
+
+    Solo toca texto que vive directamente sobre el fondo de la pagina/sidebar
+    (titulos, markdown, labels, tabs, metricas, expanders, radios/checkboxes).
+    NO toca inputs ni tablas: esos tienen su propio fondo claro y texto oscuro,
+    asi que se leen bien en cualquier tema.
+    """
+    t = theme["page_text"]
     st.markdown(
         f"""
         <style>
-        .stApp {{ background-color: {theme['page_bg']}; color: {theme['page_text']}; }}
+        .stApp {{ background-color: {theme['page_bg']}; color: {t}; }}
         [data-testid="stSidebar"] > div:first-child {{ background-color: {theme['panel_bg']}; }}
         [data-testid="stHeader"] {{ background-color: rgba(0,0,0,0); }}
-        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp p,
-        .stApp label, .stApp .stMarkdown {{ color: {theme['page_text']}; }}
+
+        /* Texto que vive sobre el fondo de la pagina/sidebar */
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6,
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stMarkdownContainer"] p,
+        [data-testid="stMarkdownContainer"] li,
+        [data-testid="stMarkdownContainer"] strong,
+        [data-testid="stWidgetLabel"],
+        [data-testid="stWidgetLabel"] p,
+        [data-testid="stWidgetLabel"] div,
+        [data-testid="stMetricLabel"],
+        [data-testid="stMetricLabel"] *,
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricDelta"],
+        .stTabs [data-baseweb="tab"],
+        .stTabs [data-baseweb="tab"] p,
+        [data-testid="stExpander"] summary,
+        [data-testid="stExpander"] summary span,
+        [data-testid="stExpander"] summary p,
+        [role="radiogroup"] label,
+        [data-testid="stCheckbox"] label,
+        [data-testid="stRadio"] label
+        {{ color: {t} !important; fill: {t} !important; }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -140,14 +177,22 @@ def style_figure(fig: go.Figure, height: int = 600) -> go.Figure:
 
 
 def show_figure(fig: go.Figure, download_name: str) -> None:
-    st.plotly_chart(fig, width="stretch", config=PLOT_CONFIG)
-    st.download_button(
-        "⬇️ Descargar grafico interactivo (HTML)",
-        fig.to_html(include_plotlyjs="cdn"),
-        file_name=f"{download_name}.html",
-        mime="text/html",
-        help="Archivo standalone: se abre en cualquier navegador, ideal para compartir.",
-    )
+    st.plotly_chart(fig, width="stretch", config=plot_config(download_name))
+    img_fmt = st.session_state.get("img_fmt", DEFAULT_IMG_FORMAT)
+    c1, c2 = st.columns([1, 1])
+    with c1:
+        st.caption(
+            f"🖼️ **Descargar imagen ({img_fmt}):** pasa el mouse por el grafico y "
+            f"clickea el icono de camara 📷 (arriba a la derecha)."
+        )
+    with c2:
+        st.download_button(
+            "⬇️ Descargar grafico interactivo (HTML)",
+            fig.to_html(include_plotlyjs="cdn"),
+            file_name=f"{download_name}.html",
+            mime="text/html",
+            help="Archivo standalone: se abre en cualquier navegador, ideal para compartir.",
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -160,6 +205,14 @@ st.sidebar.radio(
     help="Elegi el color de fondo de la app (gris por defecto).",
 )
 inject_theme_css(current_theme())
+st.sidebar.radio(
+    "🖼️ Formato de imagen",
+    list(IMG_FORMATS),
+    index=list(IMG_FORMATS).index(DEFAULT_IMG_FORMAT),
+    horizontal=True,
+    key="img_fmt",
+    help="Formato del boton de camara 📷 que descarga cada grafico como imagen.",
+)
 st.sidebar.divider()
 
 st.title("📈 LAMMPS Log Graficator")
@@ -365,11 +418,11 @@ with tab_compute:
         with g1:
             fig = px.bar(perf_df.dropna(subset=["ns/day"]), x="Run", y="ns/day",
                          title="Rendimiento por run")
-            st.plotly_chart(style_figure(fig, 400), width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(style_figure(fig, 400), width="stretch", config=plot_config("ns_por_dia"))
         with g2:
             fig = px.bar(perf_df, x="Run", y="%CPU", title="% de uso de CPU por run")
             fig.update_yaxes(range=[0, 105])
-            st.plotly_chart(style_figure(fig, 400), width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(style_figure(fig, 400), width="stretch", config=plot_config("uso_cpu"))
 
         # Desglose MPI: en que se va el tiempo (Pair, Comm, Neigh...)
         partes = []
@@ -386,11 +439,11 @@ with tab_compute:
                     bd, x="Run", y="%total", color="Seccion",
                     title="Desglose de tiempos MPI (% del loop time)",
                 )
-                st.plotly_chart(style_figure(fig, 420), width="stretch", config=PLOT_CONFIG)
+                st.plotly_chart(style_figure(fig, 420), width="stretch", config=plot_config("desglose_mpi"))
         with g4:
             fig = px.bar(perf_df.dropna(subset=["Memoria avg (MB)"]),
                          x="Run", y="Memoria avg (MB)", title="Memoria por rank MPI")
-            st.plotly_chart(style_figure(fig, 420), width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(style_figure(fig, 420), width="stretch", config=plot_config("memoria"))
 
     # --- Comparacion entre logs ---
     if len(logs) > 1:
@@ -413,7 +466,7 @@ with tab_compute:
         st.dataframe(comp_df, hide_index=True)
         if comp_df["ns/day"].notna().any():
             fig = px.bar(comp_df, x="Log", y="ns/day", title="ns/day por log")
-            st.plotly_chart(style_figure(fig, 400), width="stretch", config=PLOT_CONFIG)
+            st.plotly_chart(style_figure(fig, 400), width="stretch", config=plot_config("ns_por_dia_por_log"))
 
 # ===================================================================== INFO ==
 with tab_info:
