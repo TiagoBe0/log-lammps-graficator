@@ -16,12 +16,74 @@ from lammps_log_parser import LammpsLog, parse_log, runs_summary
 
 st.set_page_config(page_title="LAMMPS Log Graficator", page_icon="📈", layout="wide")
 
-TEMPLATE = "simple_white"
 MAX_POINTS_PER_TRACE = 10_000
 PLOT_CONFIG = {
     "displaylogo": False,
     "toImageButtonOptions": {"format": "png", "scale": 3, "filename": "lammps_plot"},
 }
+
+# Fuente con aire a publicacion cientifica (serif, tipo Computer Modern/Times).
+PAPER_FONT = "Georgia, 'Times New Roman', 'Nimbus Roman', serif"
+# Paleta Okabe-Ito: segura para daltonismo y habitual en figuras de papers.
+PAPER_PALETTE = [
+    "#0072B2", "#D55E00", "#009E73", "#CC79A7",
+    "#E69F00", "#56B4E9", "#F0E442", "#000000",
+]
+
+# Tres fondos seleccionables. "Gris" es el de por defecto.
+THEMES = {
+    "Gris": {
+        "page_bg": "#4b4f57",
+        "page_text": "#f3f4f6",
+        "panel_bg": "#5a5f69",
+        "paper_bg": "#ffffff",   # la figura es una tarjeta blanca tipo paper
+        "plot_bg": "#ffffff",
+        "font_color": "#1a1a1a",
+        "grid": "rgba(0,0,0,0.12)",
+        "axis": "#33373d",
+    },
+    "Claro": {
+        "page_bg": "#fafafa",
+        "page_text": "#1a1a1a",
+        "panel_bg": "#ffffff",
+        "paper_bg": "#ffffff",
+        "plot_bg": "#ffffff",
+        "font_color": "#1a1a1a",
+        "grid": "rgba(0,0,0,0.12)",
+        "axis": "#33373d",
+    },
+    "Oscuro": {
+        "page_bg": "#15171c",
+        "page_text": "#e8eaed",
+        "panel_bg": "#1f222a",
+        "paper_bg": "#1f222a",
+        "plot_bg": "#1f222a",
+        "font_color": "#e8eaed",
+        "grid": "rgba(255,255,255,0.14)",
+        "axis": "#b8bcc4",
+    },
+}
+DEFAULT_THEME = "Gris"
+
+
+def current_theme() -> dict:
+    return THEMES.get(st.session_state.get("theme_name", DEFAULT_THEME), THEMES[DEFAULT_THEME])
+
+
+def inject_theme_css(theme: dict) -> None:
+    """Pinta el fondo de la app (pagina y sidebar) segun el tema elegido."""
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{ background-color: {theme['page_bg']}; color: {theme['page_text']}; }}
+        [data-testid="stSidebar"] > div:first-child {{ background-color: {theme['panel_bg']}; }}
+        [data-testid="stHeader"] {{ background-color: rgba(0,0,0,0); }}
+        .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp p,
+        .stApp label, .stApp .stMarkdown {{ color: {theme['page_text']}; }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 @st.cache_data(show_spinner="Parseando log...")
@@ -36,16 +98,44 @@ def decimate(df: pd.DataFrame, max_points: int = MAX_POINTS_PER_TRACE) -> pd.Dat
 
 
 def style_figure(fig: go.Figure, height: int = 600) -> go.Figure:
+    """Aplica estetica de paper cientifico, respetando el tema activo.
+
+    Caracteristicas: tipografia serif, paleta apta para daltonismo, ejes con
+    marco (box) y ticks hacia afuera, y SIEMPRE grilla en X e Y.
+    """
+    theme = current_theme()
     fig.update_layout(
-        template=TEMPLATE,
+        template="plotly_white" if theme["plot_bg"] != "#1f222a" else "plotly_dark",
         height=height,
-        font=dict(size=15),
+        paper_bgcolor=theme["paper_bg"],
+        plot_bgcolor=theme["plot_bg"],
+        font=dict(family=PAPER_FONT, size=15, color=theme["font_color"]),
+        colorway=PAPER_PALETTE,
         hovermode="x unified",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        margin=dict(t=40),
+        margin=dict(t=50, r=20),
+        title=dict(font=dict(family=PAPER_FONT, size=17, color=theme["font_color"]), x=0.01),
     )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)", mirror=True, ticks="outside")
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(0,0,0,0.08)", mirror=True, ticks="outside")
+    axis_kwargs = dict(
+        showgrid=True,
+        gridcolor=theme["grid"],
+        gridwidth=1,
+        griddash="dot",
+        zeroline=False,
+        showline=True,
+        linecolor=theme["axis"],
+        linewidth=1.4,
+        mirror=True,
+        ticks="outside",
+        tickcolor=theme["axis"],
+        ticklen=6,
+        tickfont=dict(family=PAPER_FONT, color=theme["font_color"]),
+        title_font=dict(family=PAPER_FONT, color=theme["font_color"]),
+    )
+    fig.update_xaxes(**axis_kwargs)
+    fig.update_yaxes(**axis_kwargs)
+    # Titulos de subplots (anotaciones) acordes al tema y a la tipografia.
+    fig.update_annotations(font=dict(family=PAPER_FONT, color=theme["font_color"]))
     return fig
 
 
@@ -61,6 +151,17 @@ def show_figure(fig: go.Figure, download_name: str) -> None:
 
 
 # -----------------------------------------------------------------------------
+st.sidebar.radio(
+    "🎨 Fondo",
+    list(THEMES),
+    index=list(THEMES).index(DEFAULT_THEME),
+    horizontal=True,
+    key="theme_name",
+    help="Elegi el color de fondo de la app (gris por defecto).",
+)
+inject_theme_css(current_theme())
+st.sidebar.divider()
+
 st.title("📈 LAMMPS Log Graficator")
 
 uploaded = st.sidebar.file_uploader(
@@ -139,7 +240,9 @@ with tab_thermo:
     with st.expander("⚙️ Opciones del grafico"):
         o1, o2, o3 = st.columns(3)
         with o1:
-            modo = st.radio("Disposicion", ["Un solo grafico", "Subplot por columna"])
+            modo = st.radio(
+                "Disposicion", ["Un solo grafico", "Subplot por columna"], key="disposicion"
+            )
             unir_runs = st.checkbox(
                 "Unir runs en una sola curva", value=True,
                 help="Concatena los runs seleccionados; util cuando un protocolo "

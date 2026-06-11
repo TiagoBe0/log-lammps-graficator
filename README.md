@@ -7,8 +7,12 @@ App web para arrastrar y soltar logs de LAMMPS y graficar al instante:
   unión de runs y comparación entre varios logs. Exportá PNG de alta resolución
   (botón de cámara del gráfico), HTML interactivo standalone o CSV.
 - **Cómputo**: ns/day, timesteps/s, %CPU, memoria por rank MPI y desglose de
-  tiempos MPI (Pair/Neigh/Comm/...) de cada run.
+  tiempos MPI (Pair/Neigh/Comm/...) de cada run, **graficados automáticamente**.
 - Funciona con logs de simulaciones **todavía corriendo** (runs truncados).
+- **Fondo seleccionable** (claro / oscuro / gris, gris por defecto) desde la
+  barra lateral. Todos los gráficos llevan grilla y una estética tipo figura de
+  *paper* científico (tipografía serif, paleta apta para daltonismo, ejes con
+  marco).
 
 ## Instalación en el servidor (AlmaLinux)
 
