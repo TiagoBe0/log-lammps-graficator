@@ -84,4 +84,17 @@ def mutate_theme(at):
 at = run_app(["log_T5500_g8.lammps"], mutate_theme)
 check(at, "fondo Oscuro + imagen JPG")
 
+# 6. Titulo/caption configurable + nombres y unidades de ejes
+def mutate_labels(at):
+    # text_inputs en orden: [titulo, nombre X, unidad X, nombre Y, unidad Y]
+    at.text_input[0].set_value("Conservacion de energia")
+    at.selectbox[1].set_value("Afuera, abajo (caption)")  # posicion del titulo
+    at.text_input[1].set_value("Tiempo")
+    at.text_input[2].set_value("ps")
+    at.text_input[3].set_value("Energia")
+    at.text_input[4].set_value("meV/atomo")
+
+at = run_app(["log_T5500_g8.lammps"], mutate_labels)
+check(at, "titulo caption + etiquetas de ejes")
+
 print("\nTodos los tests pasaron ✅")

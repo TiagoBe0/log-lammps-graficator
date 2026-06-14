@@ -176,8 +176,40 @@ def style_figure(fig: go.Figure, height: int = 600) -> go.Figure:
     return fig
 
 
-def show_figure(fig: go.Figure, download_name: str) -> None:
+def _caption_html(text: str, *, small: bool) -> str:
+    """Titulo/caption renderizado FUERA del grafico, con el color del tema."""
+    color = current_theme()["page_text"]
+    size = "0.95rem" if small else "1.25rem"
+    style = "italic" if small else "normal"
+    return (
+        f"<p style='text-align:center;font-family:{PAPER_FONT};font-size:{size};"
+        f"font-style:{style};color:{color};margin:0.2rem 0'>{text}</p>"
+    )
+
+
+def show_figure(
+    fig: go.Figure, download_name: str, title: str = "", title_pos: str = "Sin titulo"
+) -> None:
+    title = title.strip()
+    # Titulo DENTRO del grafico (lo dibuja Plotly, asi viaja en el PNG/HTML).
+    if title and title_pos == "Dentro, arriba (centrado)":
+        fig.update_layout(
+            title=dict(
+                text=title, x=0.5, xanchor="center",
+                font=dict(family=PAPER_FONT, size=18, color=current_theme()["font_color"]),
+            ),
+            margin=dict(t=70),
+        )
+    # Titulo FUERA del grafico, arriba.
+    if title and title_pos == "Afuera, arriba":
+        st.markdown(_caption_html(title, small=False), unsafe_allow_html=True)
+
     st.plotly_chart(fig, width="stretch", config=plot_config(download_name))
+
+    # Caption FUERA del grafico, abajo (estilo figura de paper).
+    if title and title_pos == "Afuera, abajo (caption)":
+        st.markdown(_caption_html(title, small=True), unsafe_allow_html=True)
+
     img_fmt = st.session_state.get("img_fmt", DEFAULT_IMG_FORMAT)
     c1, c2 = st.columns([1, 1])
     with c1:
@@ -311,6 +343,28 @@ with tab_thermo:
             log_y = st.checkbox("Escala log en Y")
             marcadores = st.checkbox("Mostrar puntos")
 
+        st.divider()
+        st.markdown("**🏷️ Titulo y etiquetas de ejes**")
+        e1, e2, e3 = st.columns(3)
+        with e1:
+            titulo = st.text_input("Titulo / caption", "")
+            titulo_pos = st.selectbox(
+                "Posicion del titulo",
+                ["Sin titulo", "Dentro, arriba (centrado)", "Afuera, arriba",
+                 "Afuera, abajo (caption)"],
+                index=0,
+                help="Donde mostrar el titulo: dentro del grafico, encima o debajo "
+                "(estilo caption de figura de paper).",
+            )
+        with e2:
+            x_label = st.text_input("Nombre eje X", x_col)
+            x_unit = st.text_input("Unidad eje X", "")
+        with e3:
+            y_label = st.text_input(
+                "Nombre eje Y", y_cols[0] if len(y_cols) == 1 else ""
+            )
+            y_unit = st.text_input("Unidad eje Y", "")
+
     if not y_cols:
         st.info("Elegi al menos una columna para graficar.")
         st.stop()
@@ -359,13 +413,18 @@ with tab_thermo:
             y = suave
         fig.add_scatter(x=df[x_col], y=y, mode=line_mode, name=name, row=row, col=1)
 
-    fig.update_xaxes(title_text=x_col, row=n_filas, col=1)
-    if n_filas == 1 and len(y_cols) == 1:
-        fig.update_yaxes(title_text=y_cols[0])
+    def _axis_title(name: str, unit: str, fallback: str) -> str:
+        name, unit = name.strip(), unit.strip()
+        base = name or fallback
+        return f"{base} ({unit})" if unit else base
+
+    fig.update_xaxes(title_text=_axis_title(x_label, x_unit, x_col), row=n_filas, col=1)
+    if n_filas == 1 and (y_label.strip() or y_unit.strip() or len(y_cols) == 1):
+        fig.update_yaxes(title_text=_axis_title(y_label, y_unit, y_cols[0]))
     if log_y:
         fig.update_yaxes(type="log")
     style_figure(fig, height=max(550, 280 * n_filas))
-    show_figure(fig, "lammps_thermo")
+    show_figure(fig, "lammps_thermo", title=titulo, title_pos=titulo_pos)
 
     with st.expander("📄 Datos seleccionados / descargar CSV"):
         partes = []
