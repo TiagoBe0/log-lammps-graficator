@@ -4,7 +4,9 @@ App web para arrastrar y soltar logs de LAMMPS y graficar al instante:
 
 - **Termodinámica**: elegís qué columnas thermo graficar (Temp, Press, TotEng,
   computes `c_*`, variables `v_*`...), con suavizado, subplots, escala log,
-  unión de runs y comparación entre varios logs. Exportá cada gráfico como
+  unión de runs y comparación entre varios logs. Podés poner **título/caption**
+  propio (dentro del gráfico, afuera arriba o como caption abajo) y **nombres y
+  unidades** personalizados de los ejes. Exportá cada gráfico como
   imagen **PNG / JPG / SVG** (botón de cámara 📷, formato elegible en la barra
   lateral), HTML interactivo standalone o CSV.
 - **Cómputo**: ns/day, timesteps/s, %CPU, memoria por rank MPI y desglose de
